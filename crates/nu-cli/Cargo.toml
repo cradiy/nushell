@@ -28,7 +28,8 @@ nu-utils = { path = "../nu-utils", version = "0.99.1" }
 nu-color-config = { path = "../nu-color-config", version = "0.99.1" }
 nu-ansi-term = { workspace = true }
 reedline = { workspace = true, features = ["bashisms", "sqlite"] }
-
+whoami = "1.5.2"
+colorful = "0.3.2"
 chrono = { default-features = false, features = ["std"], workspace = true }
 crossterm = { workspace = true }
 fancy-regex = { workspace = true }

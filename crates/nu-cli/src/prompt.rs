@@ -1,14 +1,17 @@
 use crate::prompt_update::{
     POST_PROMPT_MARKER, PRE_PROMPT_MARKER, VSCODE_POST_PROMPT_MARKER, VSCODE_PRE_PROMPT_MARKER,
 };
+use colorful::Colorful;
 use nu_protocol::engine::{EngineState, Stack};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use reedline::{
     DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
-    PromptViMode,
 };
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 
 /// Nushell prompt definition
 #[derive(Clone)]
@@ -99,11 +102,30 @@ impl NushellPrompt {
         self.render_right_prompt_on_last_line = render_right_prompt_on_last_line;
     }
 
-    fn default_wrapped_custom_string(&self, str: String) -> String {
-        format!("({str})")
-    }
+    // fn default_wrapped_custom_string(&self, str: String) -> String {
+    //     format!("({str})")
+    // }
 }
-
+fn get_git_branch() -> String {
+    let mut dir = std::env::current_dir().unwrap();
+    if dir.join(".git/HEAD").exists() {
+        return read_head(&dir.join(".git/HEAD")).unwrap_or_default();
+    } else {
+        while dir.pop() {
+            if dir.join(".git/HEAD").exists() {
+                return read_head(&dir.join(".git/HEAD")).unwrap_or_default();
+            }
+        }
+    }
+    fn read_head(path: &Path) -> Option<String> {
+        let content = std::fs::read_to_string(path).ok()?;
+        let refs = PathBuf::from(content);
+        refs.iter()
+            .last()
+            .map(|s| format!("({})", s.to_string_lossy().trim()))
+    }
+    String::new()
+}
 impl Prompt for NushellPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
         #[cfg(windows)]
@@ -112,7 +134,15 @@ impl Prompt for NushellPrompt {
         }
 
         if let Some(prompt_string) = &self.left_prompt_string {
-            prompt_string.replace('\n', "\r\n").into()
+            let prompt = prompt_string.replace('\n', "\r\n").replace("\\", "/");
+            format!(
+                "{}  {}\x1b[0m {}\r\n",
+                format!("{}@{}", whoami::username(), whoami::devicename())
+                    .color(colorful::Color::Yellow),
+                prompt,
+                get_git_branch()
+            )
+            .into()
         } else {
             let default = DefaultPrompt::default();
             let prompt = default
@@ -144,43 +174,45 @@ impl Prompt for NushellPrompt {
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
-        if let Some(prompt_string) = &self.right_prompt_string {
-            prompt_string.replace('\n', "\r\n").into()
-        } else {
-            let default = DefaultPrompt::default();
-            default
-                .render_prompt_right()
-                .to_string()
-                .replace('\n', "\r\n")
-                .into()
-        }
+        // if let Some(prompt_string) = &self.right_prompt_string {
+        //     prompt_string.replace('\n', "\r\n").into()
+        // } else {
+        //     let default = DefaultPrompt::default();
+        //     default
+        //         .render_prompt_right()
+        //         .to_string()
+        //         .replace('\n', "\r\n")
+        //         .into()
+        // }
+        "".into()
     }
 
-    fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<str> {
-        match edit_mode {
-            PromptEditMode::Default => match &self.default_prompt_indicator {
-                Some(indicator) => indicator,
-                None => "> ",
-            }
-            .into(),
-            PromptEditMode::Emacs => match &self.default_prompt_indicator {
-                Some(indicator) => indicator,
-                None => "> ",
-            }
-            .into(),
-            PromptEditMode::Vi(vi_mode) => match vi_mode {
-                PromptViMode::Normal => match &self.default_vi_normal_prompt_indicator {
-                    Some(indicator) => indicator,
-                    None => "> ",
-                },
-                PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
-                    Some(indicator) => indicator,
-                    None => ": ",
-                },
-            }
-            .into(),
-            PromptEditMode::Custom(str) => self.default_wrapped_custom_string(str).into(),
-        }
+    fn render_prompt_indicator(&self, _edit_mode: PromptEditMode) -> Cow<str> {
+        // match edit_mode {
+        //     PromptEditMode::Default => match &self.default_prompt_indicator {
+        //         Some(indicator) => indicator,
+        //         None => "$ ",
+        //     }
+        //     .into(),
+        //     PromptEditMode::Emacs => match &self.default_prompt_indicator {
+        //         Some(indicator) => indicator,
+        //         None => "$ ",
+        //     }
+        //     .into(),
+        //     PromptEditMode::Vi(vi_mode) => match vi_mode {
+        //         PromptViMode::Normal => match &self.default_vi_normal_prompt_indicator {
+        //             Some(indicator) => indicator,
+        //             None => "$ ",
+        //         },
+        //         PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
+        //             Some(indicator) => indicator,
+        //             None => ": ",
+        //         },
+        //     }
+        //     .into(),
+        //     PromptEditMode::Custom(str) => self.default_wrapped_custom_string(str).into(),
+        // }
+        "$ ".into()
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
